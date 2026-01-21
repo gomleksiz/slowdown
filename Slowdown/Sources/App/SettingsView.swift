@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("wpmThreshold") private var wpmThreshold = 160
     @AppStorage("alertSoundEnabled") private var alertSoundEnabled = true
-    @AppStorage("slidingWindowSeconds") private var slidingWindowSeconds = 15
 
     var body: some View {
         Form {
@@ -18,19 +17,22 @@ struct SettingsView: View {
                 Toggle("Play alert sound", isOn: $alertSoundEnabled)
             }
 
-            Section("Calculation") {
-                Picker("Averaging window", selection: $slidingWindowSeconds) {
-                    Text("10 seconds").tag(10)
-                    Text("15 seconds").tag(15)
-                    Text("20 seconds").tag(20)
-                    Text("30 seconds").tag(30)
+            Section("About") {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text("1.1")
+                        .foregroundColor(.secondary)
                 }
-                Text("Longer windows give more stable readings but react slower to pace changes")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text("Speech Recognition")
+                    Spacer()
+                    Text("On-device only")
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 300)
+        .frame(width: 400, height: 280)
     }
 }

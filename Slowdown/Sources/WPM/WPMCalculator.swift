@@ -4,13 +4,20 @@ import Combine
 class WPMCalculator: ObservableObject {
     @Published private(set) var currentWPM: Int = 0
     @Published private(set) var status: WPMStatus = .idle
+    @Published private(set) var wpmHistory: [WPMDataPoint] = []
+
+    struct WPMDataPoint: Identifiable {
+        let id = UUID()
+        let wpm: Int
+        let timestamp: Date
+    }
 
     // Store word counts with their chunk duration
     private var wordChunks: [(words: Int, duration: TimeInterval, timestamp: Date)] = []
 
-    private var windowSeconds: Int {
-        UserDefaults.standard.integer(forKey: "slidingWindowSeconds").nonZero ?? 60
-    }
+    private let windowSeconds: Int = 60  // Fixed 60 second window
+    private let historyLimit: Int = 30   // Keep last 30 data points for graph
+
     private var threshold: Int {
         UserDefaults.standard.integer(forKey: "wpmThreshold").nonZero ?? 160
     }
@@ -28,18 +35,21 @@ class WPMCalculator: ObservableObject {
         pruneOldChunks()
         calculateWPM()
 
+        // Add to history for graph
+        let dataPoint = WPMDataPoint(wpm: currentWPM, timestamp: timestamp)
+        wpmHistory.append(dataPoint)
+        if wpmHistory.count > historyLimit {
+            wpmHistory.removeFirst()
+        }
+
         let totalWords = wordChunks.reduce(0) { $0 + $1.words }
         let totalDuration = wordChunks.reduce(0.0) { $0 + $1.duration }
         print("📊 WPM: \(currentWPM) | Words: \(totalWords) in \(Int(totalDuration))s | Chunks: \(wordChunks.count) | Status: \(status)")
     }
 
-    /// Legacy method for compatibility
-    func addWords(count: Int, at timestamp: Date) {
-        addWords(count: count, duration: 10.0, at: timestamp)
-    }
-
     func reset() {
         wordChunks.removeAll()
+        wpmHistory.removeAll()
         currentWPM = 0
         status = .idle
     }

@@ -120,6 +120,7 @@ class OverlayState: ObservableObject {
     @Published var audioSource: AudioSource = .microphone
     @Published var selectedDeviceUID: String?
     @Published var availableDevices: [AudioDeviceManager.AudioDevice] = []
+    @Published var showGraph = false
 
     let onStart: () -> Void
     let onStop: () -> Void
@@ -204,17 +205,22 @@ struct OverlayContentView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            // WPM Display
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(wpmCalculator.currentWPM)")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .foregroundColor(statusColor)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            // WPM Display or Graph
+            if state.showGraph {
+                WPMGraphView(wpmCalculator: wpmCalculator, statusColor: statusColor)
+                    .frame(height: 60)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(wpmCalculator.currentWPM)")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundColor(statusColor)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                Text("wpm")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    Text("wpm")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
             }
 
             // Audio Level Indicator
@@ -248,6 +254,17 @@ struct OverlayContentView: View {
                 }
                 .buttonStyle(.plain)
                 .help(state.isMonitoring ? "Stop" : "Start")
+
+                // Graph/Number Toggle
+                Button(action: { state.showGraph.toggle() }) {
+                    Image(systemName: state.showGraph ? "number" : "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primary)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.gray.opacity(0.2)))
+                }
+                .buttonStyle(.plain)
+                .help(state.showGraph ? "Show Number" : "Show Graph")
 
                 // Source Picker
                 Picker("", selection: Binding(
@@ -354,5 +371,88 @@ struct OverlayContentView: View {
         } else {
             return .red
         }
+    }
+}
+
+// MARK: - WPM Graph View
+
+struct WPMGraphView: View {
+    @ObservedObject var wpmCalculator: WPMCalculator
+    let statusColor: Color
+
+    private var threshold: Int {
+        UserDefaults.standard.integer(forKey: "wpmThreshold").nonZeroOrDefault(160)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let data = wpmCalculator.wpmHistory
+            let maxWPM = max(data.map { $0.wpm }.max() ?? 200, threshold + 40)
+            let minWPM = max(0, (data.map { $0.wpm }.min() ?? 0) - 20)
+
+            ZStack {
+                // Background
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.1))
+
+                if data.count > 1 {
+                    // Threshold line
+                    let thresholdY = yPosition(for: threshold, in: geometry.size.height, minWPM: minWPM, maxWPM: maxWPM)
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: thresholdY))
+                        path.addLine(to: CGPoint(x: geometry.size.width, y: thresholdY))
+                    }
+                    .stroke(Color.orange.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                    // WPM line
+                    Path { path in
+                        for (index, point) in data.enumerated() {
+                            let x = geometry.size.width * CGFloat(index) / CGFloat(data.count - 1)
+                            let y = yPosition(for: point.wpm, in: geometry.size.height, minWPM: minWPM, maxWPM: maxWPM)
+
+                            if index == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                    }
+                    .stroke(statusColor, lineWidth: 2)
+
+                    // Current WPM label
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text("\(wpmCalculator.currentWPM)")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(statusColor)
+                        Text("wpm")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(4)
+                    .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+                    .cornerRadius(4)
+                    .position(x: geometry.size.width - 25, y: 20)
+                } else {
+                    // No data yet
+                    Text("Start speaking...")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func yPosition(for wpm: Int, in height: CGFloat, minWPM: Int, maxWPM: Int) -> CGFloat {
+        let range = CGFloat(maxWPM - minWPM)
+        let normalizedValue = CGFloat(wpm - minWPM) / range
+        return height * (1 - normalizedValue) // Invert because y grows downward
+    }
+}
+
+// Helper extension
+private extension Int {
+    func nonZeroOrDefault(_ defaultValue: Int) -> Int {
+        self == 0 ? defaultValue : self
     }
 }
