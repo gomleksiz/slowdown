@@ -19,15 +19,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var wpmCalculator: WPMCalculator?
     private var alertManager: AlertManager?
     private var audioLevelMonitor: AudioLevelMonitor?
+    private var sessionManager: SessionManager?
+    private var historyWindow: NSWindow?
+    private var currentAudioSource: AudioSource = .microphone
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize components
+        sessionManager = SessionManager()
         wpmCalculator = WPMCalculator()
         audioLevelMonitor = AudioLevelMonitor()
         alertManager = AlertManager(wpmCalculator: wpmCalculator!)
 
         speechRecognizer = SpeechRecognizer { [weak self] wordCount, duration in
-            self?.wpmCalculator?.addWords(count: wordCount, duration: duration, at: Date())
+            let timestamp = Date()
+            self?.wpmCalculator?.addWords(count: wordCount, duration: duration, at: timestamp)
+
+            // Record WPM data point in session
+            if let wpm = self?.wpmCalculator?.currentWPM {
+                self?.sessionManager?.addWPMDataPoint(wpm: wpm, timestamp: timestamp)
+            }
         }
 
         audioCaptureManager = AudioCaptureManager { [weak self] buffer in
@@ -50,7 +60,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onStop: { [weak self] in self?.stopMonitoring() },
             onSourceChange: { [weak self] source in self?.changeAudioSource(source) },
             onToggleOverlay: { [weak self] in self?.overlayWindow?.toggle() },
-            onDeviceChange: { [weak self] uid in self?.changeDevice(uid) }
+            onDeviceChange: { [weak self] uid in self?.changeDevice(uid) },
+            onOpenHistory: { [weak self] in self?.openHistory() }
         )
 
         // Show overlay on launch
@@ -61,6 +72,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Request speech recognition authorization first
         speechRecognizer?.requestAuthorization { [weak self] authorized in
             if authorized {
+                // Start a new session
+                self?.sessionManager?.startSession(audioSource: self?.currentAudioSource ?? .microphone)
+
                 self?.audioCaptureManager?.startCapture()
                 self?.speechRecognizer?.startRecognition()
                 self?.overlayWindow?.setMonitoring(true)
@@ -76,9 +90,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         wpmCalculator?.reset()
         audioLevelMonitor?.reset()
         overlayWindow?.setMonitoring(false)
+
+        // End the current session
+        sessionManager?.endSession()
     }
 
     private func changeAudioSource(_ source: AudioSource) {
+        currentAudioSource = source
         let wasRunning = audioCaptureManager?.isCapturing ?? false
         if wasRunning {
             stopMonitoring()
@@ -87,6 +105,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if wasRunning {
             startMonitoring()
         }
+    }
+
+    private func openHistory() {
+        if historyWindow == nil {
+            let historyView = HistoryView(sessionManager: sessionManager!)
+            let hostingController = NSHostingController(rootView: historyView)
+
+            let window = NSWindow(contentViewController: hostingController)
+            window.title = "Session History"
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 800, height: 600))
+            window.center()
+
+            historyWindow = window
+        }
+
+        historyWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func changeDevice(_ uid: String?) {

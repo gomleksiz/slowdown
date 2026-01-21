@@ -6,12 +6,6 @@ class WPMCalculator: ObservableObject {
     @Published private(set) var status: WPMStatus = .idle
     @Published private(set) var wpmHistory: [WPMDataPoint] = []
 
-    struct WPMDataPoint: Identifiable {
-        let id = UUID()
-        let wpm: Int
-        let timestamp: Date
-    }
-
     // Store word counts with their chunk duration
     private var wordChunks: [(words: Int, duration: TimeInterval, timestamp: Date)] = []
 

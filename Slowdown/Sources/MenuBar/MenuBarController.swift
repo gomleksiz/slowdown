@@ -15,19 +15,22 @@ class MenuBarController {
     private let onSourceChange: (AudioSource) -> Void
     private let onToggleOverlay: () -> Void
     private let onDeviceChange: (String?) -> Void
+    private let onOpenHistory: () -> Void
 
     init(
         onStart: @escaping () -> Void,
         onStop: @escaping () -> Void,
         onSourceChange: @escaping (AudioSource) -> Void,
         onToggleOverlay: @escaping () -> Void,
-        onDeviceChange: @escaping (String?) -> Void = { _ in }
+        onDeviceChange: @escaping (String?) -> Void = { _ in },
+        onOpenHistory: @escaping () -> Void = {}
     ) {
         self.onStart = onStart
         self.onStop = onStop
         self.onSourceChange = onSourceChange
         self.onToggleOverlay = onToggleOverlay
         self.onDeviceChange = onDeviceChange
+        self.onOpenHistory = onOpenHistory
 
         // Get default device
         if let defaultDevice = AudioDeviceManager.shared.getDefaultInputDevice() {
@@ -108,6 +111,11 @@ class MenuBarController {
 
         menu.addItem(NSMenuItem.separator())
 
+        // History
+        let historyItem = NSMenuItem(title: "Session History...", action: #selector(openHistory), keyEquivalent: "h")
+        historyItem.target = self
+        menu.addItem(historyItem)
+
         // Settings
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -156,6 +164,10 @@ class MenuBarController {
 
     @objc private func toggleOverlay() {
         onToggleOverlay()
+    }
+
+    @objc private func openHistory() {
+        onOpenHistory()
     }
 
     @objc private func openSettings() {
