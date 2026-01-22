@@ -396,15 +396,15 @@ struct WPMGraphView: View {
                     .fill(Color.gray.opacity(0.1))
 
                 if data.count > 1 {
-                    // Threshold line
+                    // Threshold line (orange dashed)
                     let thresholdY = yPosition(for: threshold, in: geometry.size.height, minWPM: minWPM, maxWPM: maxWPM)
                     Path { path in
                         path.move(to: CGPoint(x: 0, y: thresholdY))
                         path.addLine(to: CGPoint(x: geometry.size.width, y: thresholdY))
                     }
-                    .stroke(Color.orange.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .stroke(Color.orange.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
 
-                    // WPM line
+                    // WPM line (blue like history chart)
                     Path { path in
                         for (index, point) in data.enumerated() {
                             let x = geometry.size.width * CGFloat(index) / CGFloat(data.count - 1)
@@ -417,7 +417,18 @@ struct WPMGraphView: View {
                             }
                         }
                     }
-                    .stroke(statusColor, lineWidth: 2)
+                    .stroke(Color.blue, lineWidth: 2)
+
+                    // Data points with color coding (like history chart)
+                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                        let x = geometry.size.width * CGFloat(index) / CGFloat(data.count - 1)
+                        let y = yPosition(for: point.wpm, in: geometry.size.height, minWPM: minWPM, maxWPM: maxWPM)
+
+                        Circle()
+                            .fill(pointColor(point.wpm))
+                            .frame(width: 5, height: 5)
+                            .position(x: x, y: y)
+                    }
 
                     // Current WPM label
                     VStack(alignment: .trailing, spacing: 0) {
@@ -446,7 +457,17 @@ struct WPMGraphView: View {
     private func yPosition(for wpm: Int, in height: CGFloat, minWPM: Int, maxWPM: Int) -> CGFloat {
         let range = CGFloat(maxWPM - minWPM)
         let normalizedValue = CGFloat(wpm - minWPM) / range
-        return height * (1 - normalizedValue) // Invert because y grows downward
+        return height * (1 - normalizedValue)
+    }
+
+    private func pointColor(_ wpm: Int) -> Color {
+        if wpm > threshold + 10 {
+            return .red
+        } else if wpm > threshold - 10 {
+            return .orange
+        } else {
+            return .green
+        }
     }
 }
 

@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(swift build:*)"
+      "Bash(swift build:*)",
+      "Bash(hdiutil detach:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release delete-asset:*)",
+      "Bash(codesign:*)",
+      "Bash(./build.sh)",
+      "Bash(./create-dmg.sh)"
     ]
   }
 }

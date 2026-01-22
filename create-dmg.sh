@@ -28,6 +28,10 @@ mkdir -p dmg-temp
 echo "📋 Copying app..."
 cp -R "${APP_PATH}" dmg-temp/
 
+# Remove quarantine attributes that might cause issues
+echo "🧹 Removing quarantine attributes..."
+xattr -cr dmg-temp/Slowdown.app 2>/dev/null || true
+
 # Create Applications folder symlink
 echo "🔗 Creating Applications folder symlink..."
 ln -s /Applications dmg-temp/Applications

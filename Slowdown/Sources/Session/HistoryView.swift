@@ -4,6 +4,8 @@ struct HistoryView: View {
     @ObservedObject var sessionManager: SessionManager
     @State private var selectedSession: Session?
     @State private var sourceFilter: AudioSource? = nil
+    @State private var showDeleteConfirmation: Bool = false
+    @State private var sessionToDelete: Session?
 
     private var filteredSessions: [Session] {
         sessionManager.sessionsFiltered(by: sourceFilter).sorted { $0.startTime > $1.startTime }
@@ -54,6 +56,14 @@ struct HistoryView: View {
                     List(filteredSessions, selection: $selectedSession) { session in
                         SessionRowView(session: session)
                             .tag(session)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    sessionToDelete = session
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete Session", systemImage: "trash")
+                                }
+                            }
                     }
                 }
 
@@ -79,12 +89,18 @@ struct HistoryView: View {
                     .background(Color(nsColor: .controlBackgroundColor))
                 }
             }
-            .frame(minWidth: 350, idealWidth: 400)
+            .frame(minWidth: 380, idealWidth: 420)
 
             // Right side - Session Detail
             VStack {
                 if let session = selectedSession {
-                    SessionDetailView(session: session)
+                    SessionDetailView(
+                        session: session,
+                        onDelete: {
+                            sessionToDelete = session
+                            showDeleteConfirmation = true
+                        }
+                    )
                 } else {
                     VStack(spacing: 12) {
                         Image(systemName: "sidebar.left")
@@ -97,7 +113,23 @@ struct HistoryView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .frame(minWidth: 400)
+            .frame(minWidth: 500)
+        }
+        .alert("Delete Session?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                sessionToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let session = sessionToDelete {
+                    if selectedSession?.id == session.id {
+                        selectedSession = nil
+                    }
+                    sessionManager.deleteSession(id: session.id)
+                    sessionToDelete = nil
+                }
+            }
+        } message: {
+            Text("This session will be permanently deleted.")
         }
     }
 
@@ -190,6 +222,7 @@ struct SessionRowView: View {
 
 struct SessionDetailView: View {
     let session: Session
+    let onDelete: () -> Void
 
     private var threshold: Int {
         UserDefaults.standard.integer(forKey: "wpmThreshold").nonZeroOrDefault(160)
@@ -206,6 +239,14 @@ struct SessionDetailView: View {
                             .fontWeight(.bold)
 
                         Spacer()
+
+                        // Delete button
+                        Button(role: .destructive, action: onDelete) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Delete this session")
 
                         // Source badge
                         HStack(spacing: 6) {

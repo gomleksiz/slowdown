@@ -8,6 +8,8 @@ class SpeechRecognizer {
     private var bufferQueue: [AVAudioPCMBuffer] = []
     private var isRecognizing = false
     private var recordingTimer: Timer?
+    private var useOnDeviceRecognition: Bool = false
+    private var hasLoggedRecognitionMode: Bool = false
 
     private let chunkDuration: TimeInterval = 10.0  // Record 10 seconds at a time
     private let onWordsRecognized: (Int, TimeInterval) -> Void  // (wordCount, duration)
@@ -15,6 +17,16 @@ class SpeechRecognizer {
     init(onWordsRecognized: @escaping (Int, TimeInterval) -> Void) {
         self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         self.onWordsRecognized = onWordsRecognized
+
+        // Check on-device recognition availability once at init
+        if let recognizer = speechRecognizer {
+            useOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
+            if useOnDeviceRecognition {
+                print("🔒 On-device speech recognition available")
+            } else {
+                print("☁️ On-device recognition not available, will use server-based")
+            }
+        }
     }
 
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
@@ -111,7 +123,11 @@ class SpeechRecognizer {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = false
-        request.requiresOnDeviceRecognition = true
+
+        // Use on-device recognition if available (checked at init)
+        if useOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = true
+        }
 
         request.append(buffer)
         request.endAudio()

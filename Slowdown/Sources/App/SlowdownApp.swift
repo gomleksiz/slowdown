@@ -115,7 +115,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Session History"
             window.styleMask = [.titled, .closable, .resizable]
-            window.setContentSize(NSSize(width: 800, height: 600))
+            window.setContentSize(NSSize(width: 1000, height: 700))
+            window.minSize = NSSize(width: 900, height: 600)
             window.center()
 
             historyWindow = window
