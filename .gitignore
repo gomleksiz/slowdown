@@ -16,3 +16,6 @@ Package.resolved
 
 # Build artifacts
 build/
+*.dmg
+*.iconset/
+dmg-temp/
